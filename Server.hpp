@@ -94,4 +94,6 @@ public:
 	void	ExistCh(std::vector<std::pair<std::string, std::string> >&token, int i, int j, int fd);
 	void	NotExistCh(std::vector<std::pair<std::string, std::string> >&token, int i, int fd);
 	int		SearchForClients(std::string nickname);
+	// --------------// Invite
+	void Invite(std::string &cmd, int &fd);
 };
