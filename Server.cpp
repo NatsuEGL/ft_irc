@@ -1,11 +1,9 @@
 #include "Server.hpp"
-
-bool Server::isBotfull = false;
 Server::Server(){this->server_fdsocket = -1;}
 Server::~Server(){}
 
 //---------------//Getters
-int Server::GetPort(){return this->port;}
+int Server::GetPort(){return this->my_port;}
 int Server::GetFd(){return this->server_fdsocket;}
 Client *Server::GetClient(int fd){
 	for (size_t i = 0; i < this->clients.size(); i++){
@@ -33,13 +31,13 @@ Channel *Server::GetChannel(std::string name)
 
 //---------------//Getters
 //---------------//Setters
-void Server::AddChannel(Channel newChannel){this->channels.push_back(newChannel);}
-void Server::SetFd(int fd){this->server_fdsocket = fd;}
-void Server::SetPort(int port){this->port = port;}
-void Server::SetPassword(std::string password){this->password = password;}
 std::string Server::GetPassword(){return this->password;}
-void Server::AddClient(Client newClient){this->clients.push_back(newClient);}
-void Server::AddFds(pollfd newFd){this->fds.push_back(newFd);}
+void Server::addChannel(Channel newChannel){this->channels.push_back(newChannel);}
+void Server::SetFd(int fd){this->server_fdsocket = fd;}
+void Server::SetPort(int port){this->my_port = port;}
+void Server::setPassword(std::string password){this->password = password;}
+void Server::addClient(Client newClient){this->clients.push_back(newClient);}
+void Server::addFds(pollfd newFd){this->fds.push_back(newFd);}
 //---------------//Setters
 //---------------//Remove Methods
 void Server::RemoveClient(int fd){
@@ -112,8 +110,8 @@ void	Server::close_fds(){
 void Server::init(int port, std::string pass)
 {
 	this->password = pass;
-	this->port = port;
-	this->set_sever_socket();
+	this->my_port = port;
+	this->serverSocket();
 
 	std::cout << GRE << "Server <" << server_fdsocket << "> Connected" << WHI << std::endl;
 	std::cout << "Waiting to accept a connection...\n";
@@ -126,7 +124,7 @@ void Server::init(int port, std::string pass)
 			if (fds[i].revents & POLLIN)
 			{
 				if (fds[i].fd == server_fdsocket)
-					this->accept_new_client();
+					this->newClient();
 				else
 					this->reciveNewData(fds[i].fd);
 			}
@@ -135,12 +133,12 @@ void Server::init(int port, std::string pass)
 	close_fds();
 }
 
-void Server::set_sever_socket()
+void Server::serverSocket()
 {
 	int en = 1;
 	add.sin_family = AF_INET;
 	add.sin_addr.s_addr = INADDR_ANY;
-	add.sin_port = htons(port);
+	add.sin_port = htons(my_port);
 	server_fdsocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(server_fdsocket == -1)
 		throw(std::runtime_error("faild to create socket"));
@@ -158,7 +156,7 @@ void Server::set_sever_socket()
 	fds.push_back(new_cli);
 }
 
-void Server::accept_new_client()
+void Server::newClient()
 {
 	Client cli;
 	memset(&cliadd, 0, sizeof(cliadd));
@@ -178,6 +176,18 @@ void Server::accept_new_client()
 	std::cout << GRE << "Client <" << incofd << "> Connected" << WHI << std::endl;
 }
 
+std::vector<std::string> Server::splitInputCommand(std::string& cmd)
+{
+	std::vector<std::string> vec;
+	std::istringstream stm(cmd);
+	std::string token;
+	while(stm >> token)
+	{
+		vec.push_back(token);
+		token.clear();
+	}
+	return vec;
+}
 void Server::reciveNewData(int fd)
 {
 	std::vector<std::string> cmd;
@@ -199,7 +209,7 @@ void Server::reciveNewData(int fd)
 			return;
 		cmd = split_recivedBuffer(cli->getBuffer());
 		for(size_t i = 0; i < cmd.size(); i++)
-			this->parse_exec_cmd(cmd[i], fd);
+			this->parseInput(cmd[i], fd);
 		if(GetClient(fd))
 			GetClient(fd)->clearBuffer();
 	}
@@ -220,20 +230,6 @@ std::vector<std::string> Server::split_recivedBuffer(std::string str)
 	}
 	return vec;
 }
-
-std::vector<std::string> Server::split_cmd(std::string& cmd)
-{
-	std::vector<std::string> vec;
-	std::istringstream stm(cmd);
-	std::string token;
-	while(stm >> token)
-	{
-		vec.push_back(token);
-		token.clear();
-	}
-	return vec;
-}
-
 bool Server::notregistered(int fd)
 {
 	if (!GetClient(fd) || GetClient(fd)->GetNickName().empty() || GetClient(fd)->GetUserName().empty() || GetClient(fd)->GetNickName() == "*"  || !GetClient(fd)->GetLogedIn())
@@ -241,27 +237,37 @@ bool Server::notregistered(int fd)
 	return true;
 }
 
-void Server::parse_exec_cmd(std::string &cmd, int fd)
+
+
+void Server::parseInput(std::string &cmd, int fd)
 {
-	if(cmd.empty())
+if(cmd.empty())
 		return ;
-	std::vector<std::string> splited_cmd = split_cmd(cmd);
+	std::vector<std::string> splited_cmd = splitInputCommand(cmd);
 	size_t found = cmd.find_first_not_of(" \t\v");
 	if(found != std::string::npos)
 		cmd = cmd.substr(found);
     if(splited_cmd.size() && (splited_cmd[0] == "PASS" || splited_cmd[0] == "pass"))
-        client_authen(fd, cmd);
-    else if(splited_cmd.size() && (splited_cmd[0] == "NICK" || splited_cmd[0] == "nick"))
-        set_nickname(fd, cmd);
+        authenticateClient(fd, cmd);
+	else if (splited_cmd.size() && (splited_cmd[0] == "NICK" || splited_cmd[0] == "nick"))
+		assignNickname(fd,cmd);
 	else if(splited_cmd.size() && (splited_cmd[0] == "USER" || splited_cmd[0] == "user"))
-		set_username(cmd, fd);
-	else if(splited_cmd.size() && (splited_cmd[0] == "JOIN" || splited_cmd[0] == "join"))
-		JOIN(cmd, fd);
-	else if(splited_cmd.size() && (splited_cmd[0] == "INVITE" || splited_cmd[0] == "invite"))
-		Invite(cmd, fd);
-	else 
-    {
-        std::cout << "Command not found" << std::endl;
-        return;
-    }
+		assignUsername(cmd, fd);
+	else if(notregistered(fd))
+	{
+		 if (splited_cmd.size() && (splited_cmd[0] == "JOIN" || splited_cmd[0] == "join"))
+			JOIN(cmd, fd);
+		else if (splited_cmd.size() && (splited_cmd[0] == "MODE" || splited_cmd[0] == "mode"))
+			mode(cmd, fd);
+		else if (splited_cmd.size() && (splited_cmd[0] == "INVITE" || splited_cmd[0] == "invite"))
+			Invite(cmd,fd);
+		else if (splited_cmd.size() && (splited_cmd[0] == "TOPIC" || splited_cmd[0] == "topic"))
+			TopicCommand(cmd,fd);
+		else if (splited_cmd.size() && (splited_cmd[0] == "KICK" || splited_cmd[0] == "kick"))
+			KICK(cmd,fd);
+		else if (splited_cmd.size())
+			_sendResponse(ERR_CMDNOTFOUND(GetClient(fd)->GetNickName(),splited_cmd[0]),fd);
+	}
+	else if (!notregistered(fd))
+		_sendResponse(ERR_NOTREGISTERED(std::string("*")),fd);
 }

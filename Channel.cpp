@@ -1,60 +1,48 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   channel.cpp                                        :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: akaabi <akaabi@student.42.fr>              +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/25 10:00:29 by akaabi            #+#    #+#             */
-/*   Updated: 2024/09/25 10:06:43 by akaabi           ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
 
 #include "Channel.hpp"
 
 Channel::Channel(){
-	this->invit_only = 0;
+	this->invite = 0;
 	this->topic = 0;
-	this->key = 0;
 	this->limit = 0;
-	this->topic_restriction = false;
+	this->restriction_T = false;
 	this->name = "";
 	this->topic_name = "";
 	char charaters[5] = {'i', 't', 'k', 'o', 'l'};
 	for(int i = 0; i < 5; i++)
-		modes.push_back(std::make_pair(charaters[i],false));
+		M.push_back(std::make_pair(charaters[i],false));
 	this->created_at = "";
 }
 Channel::~Channel(){}
 Channel::Channel(Channel const &src){*this = src;}
 Channel &Channel::operator=(Channel const &src){
 	if (this != &src){
-		this->invit_only = src.invit_only;
+		this->invite = src.invite;
 		this->topic = src.topic;
 		this->key = src.key;
 		this->limit = src.limit;
-		this->topic_restriction = src.topic_restriction;
+		this->restriction_T = src.restriction_T;
 		this->name = src.name;
 		this->password = src.password;
 		this->created_at = src.created_at;
 		this->topic_name = src.topic_name;
 		this->clients = src.clients;
 		this->admins = src.admins;
-		this->modes = src.modes;
+		this->M = src.M;
 	}
 	return *this;
 }
 //---------------//Setters
-void Channel::SetInvitOnly(int invit_only){this->invit_only = invit_only;}
+void Channel::setInvite(bool invite){this->invite = invite;}
 void Channel::SetTopic(int topic){this->topic = topic;}
 void Channel::SetTime(std::string time){this->time_creation = time;}
-void Channel::SetKey(int key){this->key = key;}
 void Channel::SetLimit(int limit){this->limit = limit;}
 void Channel::SetTopicName(std::string topic_name){this->topic_name = topic_name;}
 void Channel::SetPassword(std::string password){this->password = password;}
+void Channel::SetKey(int key){this->key = key;}
 void Channel::SetName(std::string name){this->name = name;}
-void Channel::set_topicRestriction(bool value){this->topic_restriction = value;}
-void Channel::setModeAtindex(size_t index, bool mode){modes[index].second = mode;}
+void Channel::set_topicRestriction(bool value){this->restriction_T = value;}
+void Channel::setModeAtindex(size_t index, bool mode){M[index].second = mode;}
 void Channel::set_createiontime(){
 	std::time_t _time = std::time(NULL);
 	std::ostringstream oss;
@@ -63,13 +51,13 @@ void Channel::set_createiontime(){
 }
 //---------------//Setters
 //---------------//Getters
-int Channel::GetInvitOnly(){return this->invit_only;}
-int Channel::GetTopic(){return this->topic;}
+int Channel::getInvite(){return this->invite;}
 int Channel::GetKey(){return this->key;}
+int Channel::GetTopic(){return this->topic;}
 int Channel::GetLimit(){return this->limit;}
-int Channel::GetClientsNumber(){return this->clients.size() + this->admins.size();}
-bool Channel::Gettopic_restriction() const{return this->topic_restriction;}
-bool Channel::getModeAtindex(size_t index){return modes[index].second;}
+int Channel::GetNumberofclient(){return this->clients.size() + this->admins.size();}
+bool Channel::Getrestriction_T() const{return this->restriction_T;}
+bool Channel::getModeAtindex(size_t index){return M[index].second;}
 bool Channel::clientInChannel(std::string &nick){
 	for(size_t i = 0; i < clients.size(); i++){
 		if(clients[i].GetNickName() == nick)
@@ -86,11 +74,11 @@ std::string Channel::GetPassword(){return this->password;}
 std::string Channel::GetName(){return this->name;}
 std::string Channel::GetTime(){return this->time_creation;}
 std::string Channel::get_creationtime(){return created_at;}
-std::string Channel::getModes(){
+std::string Channel::getM(){
 	std::string mode;
-	for(size_t i = 0; i < modes.size(); i++){
-		if(modes[i].first != 'o' && modes[i].second)
-			mode.push_back(modes[i].first);
+	for(size_t i = 0; i < M.size(); i++){
+		if(M[i].first != 'o' && M[i].second)
+			mode.push_back(M[i].first);
 	}
 	if(!mode.empty())
 		mode.insert(mode.begin(),'+');
@@ -148,6 +136,10 @@ void Channel::remove_client(int fd){
 			{clients.erase(it); break;}
 	}
 }
+
+	bool Channel::Gettopic_restriction() const{return this->restriction_T;}
+
+
 void Channel::remove_admin(int fd){
 	for (std::vector<Client>::iterator it = admins.begin(); it != admins.end(); ++it){
 		if (it->GetFd() == fd)

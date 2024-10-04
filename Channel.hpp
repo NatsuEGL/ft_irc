@@ -1,14 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   channel.hpp                                        :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: akaabi <akaabi@student.42.fr>              +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/25 10:00:21 by akaabi            #+#    #+#             */
-/*   Updated: 2024/09/25 10:06:34 by akaabi           ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
 
 #pragma once
 
@@ -21,11 +10,11 @@ class Client;
 class Channel {
    private:
 
-	int invit_only;
+	bool invite;
+	bool key;
 	int topic;
-	int key;
 	int limit;
-	bool topic_restriction;
+	bool restriction_T;
 	std::string name;
 	std::string time_creation;
 	std::string password;
@@ -33,16 +22,16 @@ class Channel {
 	std::string topic_name;
 	std::vector<Client> clients;
 	std::vector<Client> admins;
-	std::vector<std::pair<char, bool> > modes;
+	std::vector<std::pair<char, bool> > M;
 public:
 	Channel();
 	~Channel();
 	Channel(Channel const &src);
 	Channel &operator=(Channel const &src);
 	//---------------//Setters
-	void SetInvitOnly(int invit_only);
-	void SetTopic(int topic);
+	void setInvite(bool invite);
 	void SetKey(int key);
+	void SetTopic(int topic);
 	void SetLimit(int limit);
 	void SetTopicName(std::string topic_name);
 	void SetPassword(std::string password);
@@ -52,12 +41,12 @@ public:
 	void setModeAtindex(size_t index, bool mode);
 	void set_createiontime();
 	//---------------//Getters
-	int GetInvitOnly();
+	int getInvite();
 	int GetTopic();
 	int GetKey();
 	int GetLimit();
-	int GetClientsNumber();
-	bool Gettopic_restriction() const;
+	int GetNumberofclient();
+	bool Getrestriction_T() const;
 	bool getModeAtindex(size_t index);
 	bool clientInChannel(std::string &nick);
 	std::string GetTopicName();
@@ -65,11 +54,13 @@ public:
 	std::string GetName();
 	std::string GetTime();
 	std::string get_creationtime();
-	std::string getModes();
+	std::string getM();
 	std::string clientChannel_list();
 	Client *get_client(int fd);
 	Client *get_admin(int fd);
 	Client *GetClientInChannel(std::string name);
+	bool Gettopic_restriction() const;
+
 	//---------------//Methods
 	void add_client(Client newClient);
 	void add_admin(Client newClient);
