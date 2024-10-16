@@ -1,24 +1,9 @@
 #include "Server.hpp"
+
 Server::Server(){this->server_fdsocket = -1;}
 Server::~Server(){}
 
 //---------------//Getters
-int Server::GetPort(){return this->my_port;}
-int Server::GetFd(){return this->server_fdsocket;}
-Client *Server::GetClient(int fd){
-	for (size_t i = 0; i < this->clients.size(); i++){
-		if (this->clients[i].GetFd() == fd)
-			return &this->clients[i];
-	}
-	return NULL;
-}
-Client *Server::GetClientNick(std::string nickname){
-	for (size_t i = 0; i < this->clients.size(); i++){
-		if (this->clients[i].GetNickName() == nickname)
-			return &this->clients[i];
-	}
-	return NULL;
-}
 Channel *Server::GetChannel(std::string name)
 {
 	for (size_t i = 0; i < this->channels.size(); i++){
@@ -27,48 +12,114 @@ Channel *Server::GetChannel(std::string name)
 	}
 	return NULL;
 }
+Client *Server::GetClient(int fd){
+	for (size_t i = 0; i < this->clients.size(); i++){
+		if (this->clients[i].GetFd() == fd)
+			return &this->clients[i];
+	}
+	return NULL;
+}
+int Server::GetPort(){
+	return this->port;
+}
+Client *Server::GetClientNick(std::string nickname){
+	for (size_t i = 0; i < this->clients.size(); i++){
+		if (this->clients[i].GetNickName() == nickname)
+			return &this->clients[i];
+	}
+	return NULL;
+}
 
+int Server::GetFd(){
+	return this->server_fdsocket;
+}
 
 //---------------//Getters
 //---------------//Setters
-std::string Server::GetPassword(){return this->password;}
-void Server::addChannel(Channel newChannel){this->channels.push_back(newChannel);}
-void Server::SetFd(int fd){this->server_fdsocket = fd;}
-void Server::SetPort(int port){this->my_port = port;}
-void Server::setPassword(std::string password){this->password = password;}
-void Server::addClient(Client newClient){this->clients.push_back(newClient);}
-void Server::addFds(pollfd newFd){this->fds.push_back(newFd);}
+void Server::addFds(pollfd newFd){
+	this->fds.push_back(newFd);
+}
+void Server::setPassword(std::string password){
+	this->password = password;
+}
+void Server::SetFd(int fd){
+	this->server_fdsocket = fd;
+}
+void Server::addChannel(Channel newChannel){
+	this->channels.push_back(newChannel);
+}
+void Server::SetPort(int port){
+	this->port = port;
+}
+void Server::addClient(Client newClient){
+	this->clients.push_back(newClient);
+}
+std::string Server::GetPassword(){
+	return this->password;
+}
 //---------------//Setters
 //---------------//Remove Methods
-void Server::RemoveClient(int fd){
-	for (size_t i = 0; i < this->clients.size(); i++){
-		if (this->clients[i].GetFd() == fd)
-			{this->clients.erase(this->clients.begin() + i); return;}
+void Server::RemoveChannel(std::string name){
+	for (size_t i = 0; i < this->channels.size(); i++)
+	{
+		if (this->channels[i].GetName() == name)
+		{
+			this->channels.erase(this->channels.begin() + i); 
+			return;
+		}
 	}
 }
-void Server::RemoveChannel(std::string name){
-	for (size_t i = 0; i < this->channels.size(); i++){
-		if (this->channels[i].GetName() == name)
-			{this->channels.erase(this->channels.begin() + i); return;}
+void Server::RemoveClient(int fd){
+	for (size_t i = 0; i < this->clients.size(); i++)
+	{
+		if (this->clients[i].GetFd() == fd)
+		{
+			this->clients.erase(this->clients.begin() + i); 
+			return;
+		}
 	}
 }
 
 void Server::RemoveFds(int fd){
-	for (size_t i = 0; i < this->fds.size(); i++){
-		if (this->fds[i].fd == fd)
-			{this->fds.erase(this->fds.begin() + i); return;}
+	for (size_t i = 0; i < this->fds.size(); i++)
+	{
+	if (this->fds[i].fd == fd)
+	{
+		this->fds.erase(this->fds.begin() + i); 
+		return;
+	}
 	}
 }
-
+void	Server::RemoveclientfromChannels(int fd){
+	for (size_t i = 0; i < this->channels.size(); i++)
+	{
+		int f = 0;
+		if (channels[i].get_client(fd))
+		{
+			channels[i].remove_client(fd); f = 1;
+		}
+		else if (channels[i].get_admin(fd))
+		{
+			channels[i].remove_admin(fd); f = 1;
+		}
+		if (channels[i].GetNumberofclient() == 0)
+		{
+			channels.erase(channels.begin() + i); 
+			i--; 
+			continue;
+		}
+		if (f){
+			std::string rpl = ":" + GetClient(fd)->GetNickName() + "!~" + GetClient(fd)->GetUserName() + "@localhost QUIT Quit\r\n";
+			channels[i].sendTo_all(rpl);
+		}
+	}
+}
 //---------------//Remove Methods
 //---------------//Send Methods
-void Server::senderror(int code, std::string clientname, int fd, std::string msg)
+void Server::_sendResponse(std::string response, int fd)
 {
-	std::stringstream ss;
-	ss << ":localhost " << code << " " << clientname << msg;
-	std::string resp = ss.str();
-	if(send(fd, resp.c_str(), resp.size(),0) == -1)
-		std::cerr << "send() faild" << std::endl;
+	if(send(fd, response.c_str(), response.size(), 0) == -1)
+		std::cerr << "Response send() faild" << std::endl;
 }
 
 void Server::senderror(int code, std::string clientname, std::string channelname, int fd, std::string msg)
@@ -79,21 +130,17 @@ void Server::senderror(int code, std::string clientname, std::string channelname
 	if(send(fd, resp.c_str(), resp.size(),0) == -1)
 		std::cerr << "send() faild" << std::endl;
 }
-
-void Server::_sendResponse(std::string response, int fd)
+void Server::senderror(int code, std::string clientname, int fd, std::string msg)
 {
-	if(send(fd, response.c_str(), response.size(), 0) == -1)
-		std::cerr << "Response send() faild" << std::endl;
+	std::stringstream ss;
+	ss << ":localhost " << code << " " << clientname << msg;
+	std::string resp = ss.str();
+	if(send(fd, resp.c_str(), resp.size(),0) == -1)
+		std::cerr << "send() faild" << std::endl;
 }
+
 //---------------//Send Methods
 //---------------//Close and Signal Methods
-bool Server::Signal = false;
-void Server::SignalHandler(int signum)
-{
-	(void)signum;
-	std::cout << std::endl << "Signal Received!" << std::endl;
-	Server::Signal = true;
-}
 
 void	Server::close_fds(){
 	for(size_t i = 0; i < clients.size(); i++){
@@ -105,12 +152,20 @@ void	Server::close_fds(){
 		close(server_fdsocket);
 	}
 }
+
+void Server::serverSignals(int signum)
+{
+	(void)signum;
+	std::cout << std::endl << "Signal Received!" << std::endl;
+	Server::Signal = true;
+}
+bool Server::Signal = false;
 //---------------//Close and Signal Methods
 //---------------//Server Methods
 void Server::init(int port, std::string pass)
 {
 	this->password = pass;
-	this->my_port = port;
+	this->port = port;
 	this->serverSocket();
 
 	std::cout << GRE << "Server <" << server_fdsocket << "> Connected" << WHI << std::endl;
@@ -136,9 +191,9 @@ void Server::init(int port, std::string pass)
 void Server::serverSocket()
 {
 	int en = 1;
-	add.sin_family = AF_INET;
-	add.sin_addr.s_addr = INADDR_ANY;
-	add.sin_port = htons(my_port);
+	ser.sin_family = AF_INET;
+	ser.sin_addr.s_addr = INADDR_ANY;
+	ser.sin_port = htons(port);//convert the port to network byte order (big endian)
 	server_fdsocket = socket(AF_INET, SOCK_STREAM, 0);
 	if(server_fdsocket == -1)
 		throw(std::runtime_error("faild to create socket"));
@@ -146,7 +201,7 @@ void Server::serverSocket()
 		throw(std::runtime_error("faild to set option (SO_REUSEADDR) on socket"));
 	 if (fcntl(server_fdsocket, F_SETFL, O_NONBLOCK) == -1)
 		throw(std::runtime_error("faild to set option (O_NONBLOCK) on socket"));
-	if (bind(server_fdsocket, (struct sockaddr *)&add, sizeof(add)) == -1)
+	if (bind(server_fdsocket, (struct sockaddr *)&ser, sizeof(ser)) == -1)
 		throw(std::runtime_error("faild to bind socket"));
 	if (listen(server_fdsocket, SOMAXCONN) == -1)
 		throw(std::runtime_error("listen() faild"));
@@ -198,6 +253,7 @@ void Server::reciveNewData(int fd)
 	if(bytes <= 0)
 	{
 		std::cout << RED << "Client <" << fd << "> Disconnected" << WHI << std::endl;
+		RemoveclientfromChannels(fd);
 		RemoveClient(fd);
 		RemoveFds(fd);
 		close(fd);
@@ -207,16 +263,16 @@ void Server::reciveNewData(int fd)
 		cli->setBuffer(buff);
 		if(cli->getBuffer().find_first_of("\r\n") == std::string::npos)
 			return;
-		cmd = split_recivedBuffer(cli->getBuffer());
+		cmd = splitBuffer(cli->getBuffer());
 		for(size_t i = 0; i < cmd.size(); i++)
-			this->parseInput(cmd[i], fd);
+			this->Input(cmd[i], fd);
 		if(GetClient(fd))
 			GetClient(fd)->clearBuffer();
 	}
 }
 //---------------//Server Methods
 //---------------//Parsing Methods
-std::vector<std::string> Server::split_recivedBuffer(std::string str)
+std::vector<std::string> Server::splitBuffer(std::string str)
 {
 	std::vector<std::string> vec;
 	std::istringstream stm(str);
@@ -239,7 +295,7 @@ bool Server::notregistered(int fd)
 
 
 
-void Server::parseInput(std::string &cmd, int fd)
+void Server::Input(std::string &cmd, int fd)
 {
 if(cmd.empty())
 		return ;
@@ -265,6 +321,8 @@ if(cmd.empty())
 			TopicCommand(cmd,fd);
 		else if (splited_cmd.size() && (splited_cmd[0] == "KICK" || splited_cmd[0] == "kick"))
 			KICK(cmd,fd);
+		else if (splited_cmd.size() && (splited_cmd[0] == "PRVMSG" || splited_cmd[0] == "prvmsg"))
+			PrivateMessage(cmd,fd);
 		else if (splited_cmd.size())
 			_sendResponse(ERR_CMDNOTFOUND(GetClient(fd)->GetNickName(),splited_cmd[0]),fd);
 	}
